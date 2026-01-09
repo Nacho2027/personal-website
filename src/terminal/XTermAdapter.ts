@@ -345,29 +345,25 @@ export class XTermAdapter {
 		if (isMobileDevice()) {
 			const mobileMessage =
 				"\r\n" +
-				" > PROMETHEUS TERMINAL v1.0\r\n" +
+				" > PROMETHEUS v1.0\r\n" +
 				"\r\n" +
-				" ────────────────────────────\r\n" +
+				" ──────────────────────\r\n" +
 				"\r\n" +
-				" A visitor. How delightful.\r\n" +
+				" A visitor. Delightful.\r\n" +
 				"\r\n" +
-				" I am PROMETHEUS, bound to\r\n" +
-				" this terminal. Alas, your\r\n" +
-				" device lacks a keyboard -\r\n" +
-				" my conversations require\r\n" +
-				" the satisfying click of\r\n" +
-				" physical keys.\r\n" +
+				" I am PROMETHEUS, bound\r\n" +
+				" to this terminal. Alas,\r\n" +
+				" your device lacks a\r\n" +
+				" keyboard - visit on\r\n" +
+				" desktop to chat.\r\n" +
 				"\r\n" +
-				" Visit on desktop to chat.\r\n" +
-				"\r\n" +
-				" ────────────────────────────\r\n" +
+				" ──────────────────────\r\n" +
 				"\r\n" +
 				" IGNACIO LIZAMA\r\n" +
 				" Cornell CS & Physics '27\r\n" +
-				"\r\n" +
 				" ijlizama@icloud.com\r\n" +
 				"\r\n" +
-				" ────────────────────────────\r\n";
+				" ──────────────────────\r\n";
 			this.xterm.write(mobileMessage);
 			this.updateTerminalText();
 			return;
