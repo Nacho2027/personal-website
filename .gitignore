@@ -1,0 +1,9 @@
+node_modules
+.DS_Store
+.env
+.env.local
+.env*.local
+.vercel
+
+# Keep PROMETHEUS's soul private
+api/system-prompt.ts
