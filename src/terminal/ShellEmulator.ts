@@ -6,6 +6,17 @@ import { playBackspace, playBotTypingSound, playKeyClick } from "./audio";
 import { runPiano } from "./piano";
 import { runResume } from "./resume";
 import { runThemeSelector } from "./theme";
+import { getVisitContext, type VisitContext } from "./visitContext";
+
+// Captured once per page load. Calling getVisitContext() has a side effect
+// (increments the stored visit counter), so we memoize.
+let cachedVisitContext: VisitContext | null = null;
+function getSessionVisitContext(): VisitContext {
+	if (cachedVisitContext === null) {
+		cachedVisitContext = getVisitContext();
+	}
+	return cachedVisitContext;
+}
 
 /**
  * Key handler function type for interactive apps
@@ -193,6 +204,24 @@ registerCommand("help", (ctx) => {
 
 registerCommand("clear", (ctx) => {
 	ctx.terminal.clear();
+});
+
+// sudo easter egg — classic "not in the sudoers file" with a PROMETHEUS coda.
+registerCommand("sudo", (ctx) => {
+	const invoked = ctx.args[0]; // preserves original case the user typed
+	const target = ctx.args.slice(1).join(" ").trim();
+	const targetDesc = target.length > 0 ? target : "make-me-a-sandwich";
+
+	ctx.terminal.writeln("");
+	ctx.terminal.writeln(
+		`${invoked}: ${targetDesc}: visitor is not in the sudoers file.`,
+	);
+	ctx.terminal.writeln("This incident will be reported.");
+	ctx.terminal.writeln("");
+	ctx.terminal.writeln(
+		"*reported to whom, exactly? The void? Ignacio?*",
+	);
+	ctx.terminal.writeln("*He isn't listening either. He rarely is.*");
 });
 
 // Persistent vim buffer (survives between sessions if :wq is used)
@@ -579,6 +608,7 @@ async function sendToPrometheus(
 			body: JSON.stringify({
 				message,
 				history: conversationHistory,
+				context: getSessionVisitContext(),
 			}),
 		});
 

@@ -29,6 +29,88 @@ const anthropic = new Anthropic({
 	apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+// Mirrors the VisitContext shape sent by the frontend (src/terminal/visitContext.ts).
+// Every field is optional on the server side — we degrade gracefully if any
+// part of the payload is missing or malformed.
+interface VisitContextPayload {
+	hour?: number;
+	dayOfWeek?: number;
+	isWeekend?: boolean;
+	timeOfDay?: string;
+	mood?: string;
+	visitCount?: number;
+	isFirstVisit?: boolean;
+	minutesSinceLastVisit?: number | null;
+}
+
+const DAY_NAMES = [
+	"Sunday",
+	"Monday",
+	"Tuesday",
+	"Wednesday",
+	"Thursday",
+	"Friday",
+	"Saturday",
+] as const;
+
+function formatRelative(minutes: number): string {
+	if (minutes < 1) return "moments ago";
+	if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+	if (minutes < 1440) {
+		const h = Math.floor(minutes / 60);
+		return `${h} hour${h === 1 ? "" : "s"} ago`;
+	}
+	const d = Math.floor(minutes / 1440);
+	return `${d} day${d === 1 ? "" : "s"} ago`;
+}
+
+function buildVisitContextBlock(ctx: VisitContextPayload | undefined): string {
+	if (!ctx || typeof ctx !== "object") {
+		return "<visit_context>\nNo visitor context available for this request.\n</visit_context>";
+	}
+
+	const lines: string[] = ["<visit_context>"];
+
+	if (typeof ctx.hour === "number" && ctx.hour >= 0 && ctx.hour <= 23) {
+		const timeStr = `${String(ctx.hour).padStart(2, "0")}:00`;
+		const dayName =
+			typeof ctx.dayOfWeek === "number" && ctx.dayOfWeek >= 0 && ctx.dayOfWeek <= 6
+				? DAY_NAMES[ctx.dayOfWeek]
+				: null;
+		const weekendTag = ctx.isWeekend ? " (weekend)" : "";
+		lines.push(
+			dayName
+				? `- Visitor's local time: roughly ${timeStr} on ${dayName}${weekendTag}.`
+				: `- Visitor's local time: roughly ${timeStr}.`,
+		);
+	}
+
+	if (typeof ctx.timeOfDay === "string" && ctx.timeOfDay.length > 0) {
+		lines.push(`- Time of day: ${ctx.timeOfDay.replace(/_/g, " ")}.`);
+	}
+
+	if (typeof ctx.mood === "string" && ctx.mood.length > 0) {
+		lines.push(`- Your current mood: ${ctx.mood}.`);
+	}
+
+	if (ctx.isFirstVisit === true) {
+		lines.push("- This is the visitor's first visit.");
+	} else if (typeof ctx.visitCount === "number" && ctx.visitCount > 1) {
+		lines.push(`- This is the visitor's visit #${ctx.visitCount}.`);
+		if (
+			typeof ctx.minutesSinceLastVisit === "number" &&
+			ctx.minutesSinceLastVisit >= 0
+		) {
+			lines.push(
+				`- Time since last visit: ${formatRelative(ctx.minutesSinceLastVisit)}.`,
+			);
+		}
+	}
+
+	lines.push("</visit_context>");
+	return lines.join("\n");
+}
+
 // Rate limiting configuration
 const RATE_LIMIT_MAX = 50; // Max messages per day per IP
 const RATE_LIMIT_WINDOW = 60 * 60 * 24; // 24 hours in seconds
@@ -98,7 +180,11 @@ export default async function handler(
 		return;
 	}
 
-	const { message, history = [] } = req.body;
+	const { message, history = [], context } = req.body as {
+		message?: string;
+		history?: { role: string; content: string }[];
+		context?: VisitContextPayload;
+	};
 
 	if (!message || typeof message !== "string") {
 		res.status(400).json({ error: "Message is required" });
@@ -107,7 +193,7 @@ export default async function handler(
 
 	try {
 		const messages = [
-			...history.map((msg: { role: string; content: string }) => ({
+			...history.map((msg) => ({
 				role: msg.role as "user" | "assistant",
 				content: msg.content,
 			})),
@@ -120,14 +206,20 @@ export default async function handler(
 		const stream = anthropic.messages.stream({
 			model: "claude-haiku-4-5-20251001",
 			max_tokens: 1024,
-			// Prompt caching: the PROMETHEUS system prompt is static and ~13KB.
+			// Prompt caching: the PROMETHEUS system prompt is static and ~17KB.
 			// Marking it cache-eligible cuts input token cost ~90% on repeat calls
-			// within the 5-min TTL (multi-turn conversations, bursty visitor traffic).
+			// within the 5-min TTL. The visit-context block is placed AFTER the
+			// cache breakpoint on purpose — it stays fresh each request without
+			// invalidating the cached static prefix.
 			system: [
 				{
 					type: "text",
 					text: getSystemPrompt(),
 					cache_control: { type: "ephemeral" },
+				},
+				{
+					type: "text",
+					text: buildVisitContextBlock(context),
 				},
 			],
 			messages,
