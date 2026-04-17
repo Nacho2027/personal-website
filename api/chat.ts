@@ -120,7 +120,16 @@ export default async function handler(
 		const stream = anthropic.messages.stream({
 			model: "claude-haiku-4-5-20251001",
 			max_tokens: 1024,
-			system: getSystemPrompt(),
+			// Prompt caching: the PROMETHEUS system prompt is static and ~13KB.
+			// Marking it cache-eligible cuts input token cost ~90% on repeat calls
+			// within the 5-min TTL (multi-turn conversations, bursty visitor traffic).
+			system: [
+				{
+					type: "text",
+					text: getSystemPrompt(),
+					cache_control: { type: "ephemeral" },
+				},
+			],
 			messages,
 		});
 
