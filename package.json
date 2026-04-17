@@ -32,7 +32,7 @@
 		"typescript": "^5.7.2"
 	},
 	"dependencies": {
-		"@anthropic-ai/sdk": "^0.52.0",
+		"@anthropic-ai/sdk": "^0.90.0",
 		"@types/stats.js": "^0.17.4",
 		"@vercel/kv": "^3.0.0",
 		"@vercel/node": "^5.0.0",
