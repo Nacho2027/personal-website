@@ -44,9 +44,6 @@ export class XTermAdapter {
 
 	private cursorExplicitlyHidden: boolean = false;
 
-	// biome-ignore lint/correctness/noUnusedPrivateClassMembers: property is used via this.outputBuffer
-	private outputBuffer: string = "";
-
 	constructor(
 		terminalText: TerminalText,
 		cols: number = 80,
@@ -396,20 +393,17 @@ export class XTermAdapter {
 	private createTerminalIO(): TerminalIO {
 		return {
 			write: (text: string) => {
-				this.outputBuffer += text;
 				this.xterm.write(text.replace(/\n/g, "\r\n"), () => {
 					this.updateTerminalText();
 				});
 			},
 			writeln: (text: string) => {
-				this.outputBuffer += `${text}\n`;
 				this.xterm.write(`${text.replace(/\n/g, "\r\n")}\r\n`, () => {
 					this.updateTerminalText();
 				});
 			},
 			clear: () => {
 				this.xterm.clear();
-				this.outputBuffer = "";
 				this.updateTerminalText();
 			},
 			setKeyHandler: (handler: KeyHandler) => {
@@ -654,11 +648,9 @@ export class XTermAdapter {
 
 			this.xterm.write("\x1b[2J\x1b[H");
 			this.xterm.clear();
-			this.outputBuffer = "";
 			this.updateTerminalText();
 
 			const initialOutput = getInitialOutput();
-			this.outputBuffer += initialOutput;
 			this.xterm.write(initialOutput, () => {
 				this.updateTerminalText();
 			});
@@ -738,7 +730,6 @@ export class XTermAdapter {
 		this.savedCurrentLine = "";
 
 		this.xterm.write("\r\n");
-		this.outputBuffer += "\n";
 		this.updateTerminalText();
 
 		this.isCommandRunning = true;
