@@ -4,22 +4,22 @@
 
 ## Security
 
-### Critical: Committed Secrets in Repository
+### No Secrets Leak Detected (Previously Flagged, Verified False — 2026-04-17)
 
-**Issue:** `.env` file is checked into git history despite being in `.gitignore`
-- Files: `.env`
-- Risk: **CRITICAL** - The `ANTHROPIC_API_KEY` (sk-ant-api03-...) is exposed in git history and accessible via repository access
-- Impact: API key is compromised. Any user with repository access can abuse the Anthropic account
-- Current mitigation: `.gitignore` entry prevents future commits, but doesn't remove history
-- Recommendations:
-  1. **Immediately revoke** the exposed Anthropic API key in account settings
-  2. **Generate a new API key** and update production environment
-  3. **Use `git filter-branch` or `bfg-repo-cleaner`** to remove `.env` from git history
-  4. **Force push** only if this is a private repo (coordinate with team)
-  5. Consider using git pre-commit hooks to prevent committing `.env` files
-  6. For local development, create `.env.example` with placeholder values instead
+**Previous claim (INCORRECT):** An earlier audit pass asserted that `.env` had been committed to git history, exposing the `ANTHROPIC_API_KEY`.
 
-**Detection:** Git log reveals `.env` tracked in commits; file contains real API keys with `sk-ant-` prefix
+**Verification performed 2026-04-17:**
+- `git log --all -- .env` → no commits ever touched `.env`
+- Full-history blob scan for the pattern `sk-ant-apiNN-{20+ chars}` across every object in every commit → **zero hits**
+- Only match for the literal string `sk-ant-api` anywhere in git history was inside THIS file (the prefix string used to describe the supposed leak, not a real key)
+- Current `.env` exists locally only, is listed in `.gitignore` (line 3), and has never been tracked
+
+**Status:** No key rotation needed. No history rewrite needed. Claim retracted.
+
+**Standing recommendations (preventive, not remedial):**
+- Keep the existing `.gitignore` rule for `.env`
+- Consider adding a pre-commit hook (e.g., `gitleaks`, `detect-secrets`) to block future accidental commits of files matching secret patterns
+- Add a `.env.example` with placeholder keys so new contributors know what vars to set
 
 ---
 
@@ -284,7 +284,7 @@
 
 | Issue | Severity | Impact | Effort |
 |-------|----------|--------|--------|
-| Committed API key in history | CRITICAL | Account compromise | High |
+| ~~Committed API key in history~~ | ~~CRITICAL~~ | Retracted — verified false on 2026-04-17 | — |
 | XTermAdapter too large | High | Maintainability | Medium |
 | ShellEmulator too large | High | Maintainability | Medium |
 | No tests | High | Reliability | High |
